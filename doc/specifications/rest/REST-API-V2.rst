@@ -233,6 +233,7 @@ Resource                                                          POST          
 /content/objects/<ID>/currentversion                              .                   redirect to current v.  .                            .                 create draft
                                                                                                                                                              from current
                                                                                                                                                              version
+/content/objects/<ID>/currentversion/translations/<languageCode>  .                   .                       .                            delete translation
 /content/objects/<ID>/versions/<no>                               .                   get a specific version  update a version/draft       delete version    create draft
                                                                                                                                                              from version
 /content/objects/<ID>/versions/<no>/relations                     create new relation load relations of vers. .                            .
@@ -1453,6 +1454,24 @@ Delete Content Version
     :404: if the content object or version nr was not found
     :401: If the user is not authorized to delete this version
     :403: If the version is in state published
+
+Delete Published Content Version Translation
+``````````````````````
+:Resource: /content/objects/<ID>/currentversion/translations/<languageCode>
+:Method: DELETE
+:Description: The translation is removed from a published version (creates and publishes new version)
+:Response:
+
+.. code:: http
+
+    HTTP/1.1 204 No Content
+
+:Error Codes:
+        :404: if the content object or version no. or translation were not found
+        :401: If the user is not authorized to delete this translation
+        :403: If the version is in not published state
+        :406: if the given translation does not exist for the version
+        :409: if the specified translation is the only one the Version has or is the main Translation
 
 Publish a content version
 `````````````````````````
