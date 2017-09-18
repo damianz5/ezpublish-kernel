@@ -362,6 +362,41 @@ class Content extends RestController
     }
 
     /**
+     * Remove the given Translation of the given published Version and publish new one.
+     *
+     * @param int $contentId
+     * @param string $languageCode
+     *
+     * @return \eZ\Publish\Core\REST\Server\Values\NoContent
+     *
+     * @throws \eZ\Publish\Core\REST\Server\Exceptions\ForbiddenException
+     * @throws \Exception
+     */
+    public function deletePublishedVersionTranslation($contentId, $languageCode)
+    {
+        $contentService = $this->repository->getContentService();
+        $versionInfo = $this->repository->getContentService()->loadVersionInfoById($contentId);
+
+        if (!$versionInfo->isPublished()) {
+            throw new ForbiddenException('Translation can be deleted from PUBLISHED Version only');
+        }
+
+        $this->repository->beginTransaction();
+        try {
+            $draft = $contentService->createContentDraft($versionInfo->contentInfo);
+            $draft = $contentService->deleteTranslation($draft->versionInfo, $languageCode);
+            $contentService->publishVersion($draft->versionInfo);
+
+            $this->repository->commit();
+        } catch (\Exception $e) {
+            $this->repository->rollback();
+            throw $e;
+        }
+
+        return new Values\NoContent();
+    }
+
+    /**
      * The system creates a new draft version as a copy from the given version.
      *
      * @param mixed $contentId
