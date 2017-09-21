@@ -414,4 +414,110 @@ XML;
         self::assertHttpResponseCodeEquals($response, 301);
         self::assertHttpResponseHasHeader($response, 'Location');
     }
+
+    /**
+     * Covers DELETE /content/objects/<contentId>/currentversion/translations/<languageCode>.
+     *
+     * @depends testCreateDraftFromVersion
+     *
+     * @param string $restContentVersionHref
+     */
+    public function testDeletePublishedVersionTranslation($restContentVersionHref)
+    {
+        $this->createVersionTranslation($restContentVersionHref);
+
+        $response = $this->sendHttpRequest(
+            $this->createHttpRequest('GET', $restContentVersionHref, '', 'Version+json')
+        );
+
+        $version = json_decode($response->getContent(), true);
+        self::assertNotEmpty(
+            $version['Version']['VersionInfo']['VersionTranslationInfo']['Language']
+        );
+        $languages = $version['Version']['VersionInfo']['VersionTranslationInfo']['Language'];
+
+        // find first Translation to delete
+        $restDeleteTranslationHref = $translationToDelete = null;
+        foreach ($languages as $language) {
+            if (!empty($language['DeleteTranslation']['_href'])) {
+                $translationToDelete = $language['languageCode'];
+                $restDeleteTranslationHref = $language['DeleteTranslation']['_href'];
+                break;
+            }
+        }
+        self::assertNotEmpty($restDeleteTranslationHref);
+        // delete Translation
+        $response = $this->sendHttpRequest(
+            $this->createHttpRequest('DELETE', $restDeleteTranslationHref)
+        );
+        self::assertHttpResponseCodeEquals($response, 204);
+
+        // check that the Translation was deleted by getting all Versions resource link
+        // get Content
+        $restContentHref = $version['Version']['VersionInfo']['Content']['_href'];
+        $response = $this->sendHttpRequest(
+            $this->createHttpRequest('GET', $restContentHref, '', 'Content+json')
+        );
+        $content = json_decode($response->getContent(), true);
+
+        // get all Versions
+        $restVersionsHref = $content['Content']['Versions']['_href'];
+        $response = $this->sendHttpRequest(
+            $this->createHttpRequest('GET', $restVersionsHref, '', 'Content+json')
+        );
+        $allVersions = json_decode($response->getContent(), true);
+        $lastVersion = array_pop($allVersions['VersionList']['VersionItem']);
+
+        // check new Version structure
+        self::assertEquals('PUBLISHED', $lastVersion['VersionInfo']['status']);
+        self::assertNotContains($translationToDelete, $lastVersion['VersionInfo']['languageCodes']);
+    }
+
+    /**
+     * Publish another Version with new Translation.
+     *
+     * @param string $restContentVersionHref
+     *
+     * @return string
+     */
+    private function createVersionTranslation($restContentVersionHref)
+    {
+        $this->ensureLanguageExists('pol-PL', 'Polish');
+
+        $xml = <<< XML
+<VersionUpdate>
+    <fields>
+        <field>
+            <fieldDefinitionIdentifier>name</fieldDefinitionIdentifier>
+            <languageCode>pol-PL</languageCode>
+            <fieldValue>Polish translated name</fieldValue>
+        </field>
+    </fields>
+</VersionUpdate>
+XML;
+
+        $request = $this->createHttpRequest('PATCH', $restContentVersionHref, 'VersionUpdate+xml', 'Version+json');
+        $request->setContent($xml);
+        $response = $this->sendHttpRequest(
+            $request
+        );
+
+        self::assertHttpResponseCodeEquals($response, 200);
+
+        $response = $this->sendHttpRequest(
+            $this->createHttpRequest('PUBLISH', $restContentVersionHref)
+        );
+        self::assertHttpResponseCodeEquals($response, 204);
+    }
+
+    /**
+     * Make REST API calls to check if the given Language exists and create it if it doesn't.
+     *
+     * @param string $languageCode
+     * @param string $languageName
+     */
+    private function ensureLanguageExists($languageCode, $languageName)
+    {
+        self::markTestIncomplete('@todo: Implement EZP-21171');
+    }
 }
